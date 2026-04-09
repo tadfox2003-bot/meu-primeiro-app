@@ -1,0 +1,74 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Validação de Código
+
+    steps:
+      - name: 📥 Checkout do código
+        uses: actions/checkout@v4
+
+      - name: ✅ Verificar estrutura do projeto
+        run: |
+          echo "📂 Verificando arquivos do projeto..."
+          ls -la src/
+          echo "✓ Estrutura validada!"
+
+      - name: 🔍 Validar JSON
+        run: |
+          echo "Validando db.json..."
+          python3 -m json.tool src/db.json > /dev/null
+          echo "✓ JSON válido!"
+
+  build:
+    runs-on: ubuntu-latest
+    name: Build do Projeto
+    needs: validate
+
+    steps:
+      - name: 📥 Checkout do código
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Build do projeto
+        run: |
+          echo "Iniciando build..."
+          mkdir -p build
+          cp -r src/* build/
+          echo "✓ Build concluído!"
+
+      - name: 📦 Upload do artefato
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifact
+          path: build/
+          retention-days: 7
+
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy para GitHub Pages
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: 📥 Checkout do código
+        uses: actions/checkout@v4
+
+      - name: 📥 Download do artefato
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifact
+          path: build/
+
+      - name: 🚀 Deploy para GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./build
+          cname: meu-primeiro-app.com
